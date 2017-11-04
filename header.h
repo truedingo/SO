@@ -3,6 +3,7 @@
 
 /*Server.c*/
 void read_from_file();
+void thread_pool();
 
 /*Estrutura para config.txt
 //triage -> nthreads
@@ -19,9 +20,8 @@ typedef struct config{
 
 /*Cria pointer para estrutura config*/
 config *config_ptr;
-/*Aloca memória para a estrutura*/
 
-/*Estrutua paciente
+/*Estrutura paciente
 //name -> nome do paciente
 //triage_time -> tempo de triagem
 //service_time -> tempo de atendimento*/

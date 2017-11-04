@@ -1,8 +1,19 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include "header.h"
-#include <string.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <sys/stat.h>
 #include <pthread.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include "header.h"
 
 /*Função que le do ficheiro e armazena na estrutura*/
 void read_from_file(){
@@ -33,9 +44,9 @@ void read_from_file(){
     printf("Message queue (MQ): %d\n", config_ptr->mq_max);
 }
 void *worker(){
-    printf("Triage thread\n");
+    printf("Hello! I'm Triage thread!\n");
     sleep(2);
-    printf("Exiting...\n");
+    printf("Triage thread is leaving... :(\n");
     pthread_exit(NULL);
 }
 
