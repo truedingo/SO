@@ -19,7 +19,7 @@
 void read_from_file(){
     FILE *fp = fopen("config.txt", "r");
     if (!fp){
-        printf("Error reading the file\n");
+        perror("Error reading the file\n");
         exit(0);
     }
     else
