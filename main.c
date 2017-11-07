@@ -74,6 +74,18 @@ void thread_pool(){
 
 }
 
+void doctor_pool(){
+	int i;
+    int forkValue;
+	for(i=0; i<configptr->doctor: i++){
+	    forkValue = fork();
+        if(forkValue == 0){
+            printf("Doctors on service.");
+        }
+				
+	}
+}
+
 int main(){
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
