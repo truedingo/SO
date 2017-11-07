@@ -74,17 +74,30 @@ void thread_pool(){
 
 }
 
-void doctor_pool(){
+void process_creator(){
 	int i;
+    pid_t pid;
     int forkValue;
-	for(i=0; i<configptr->doctor: i++){
+	for(i=0; i<configptr->doctors: i++){
 	    forkValue = fork();
+        pid = getpid();
         if(forkValue == 0){
-            printf("Doctors on service.");
+            printf("Doctor on service.");
+            sleep(5);
         }
-				
+        else if (forkValue > 0){
+            printf("Process ID is %d", pid);
+        }
+        else{
+            perror("Error creating process");
+        }			
 	}
 }
+
+void kill_process(pid_t pid){
+    kill
+}
+
 
 int main(){
     config_ptr = malloc(sizeof(config));
