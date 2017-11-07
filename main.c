@@ -74,28 +74,39 @@ void thread_pool(){
 
 }
 
+/*Not doing anything*/
+void kill_process(int pid){
+    if(kill(pid, SIGTERM) != 0){
+        perror("Error killing process\n");
+        exit(0);
+    }
+    printf("Process with ID %d killed\n", getpid());
+}
+
+void fork_call(){
+    printf("Hello! I'm a doctor process, ready to help you!\n");
+    sleep(3);
+    printf("Well, my shift is over. Goodbye!\n");
+    exit(0);
+}
+
 void process_creator(){
 	int i;
     pid_t pid;
     int forkValue;
-	for(i=0; i<configptr->doctors: i++){
+	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
         pid = getpid();
         if(forkValue == 0){
-            printf("Doctor on service.");
-            sleep(5);
+            printf("Doctor on service! My ID is %d\n", pid);
+            fork_call();
+            exit(0);
         }
-        else if (forkValue > 0){
-            printf("Process ID is %d", pid);
+        else if (forkValue < 0){
+            perror("Error creating process\n");
         }
-        else{
-            perror("Error creating process");
-        }			
+        /*kill_process(pid);*/		
 	}
-}
-
-void kill_process(pid_t pid){
-    kill
 }
 
 
@@ -109,5 +120,7 @@ int main(){
         }
     read_from_file();
     thread_pool();
+    process_creator();
     printf("Exiting...\n");
+    exit(0);
 }
