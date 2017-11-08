@@ -45,7 +45,7 @@ void read_from_file(){
     /*Teste*/
     printf("Numero de threads (Triage): %d\n", config_ptr->triage);
     printf("Numero de processos (Doctors): %d\n", config_ptr->doctors);
-    printf("Duracao do shift (Shift Length): %f\n", config_ptr->shift_length);
+    printf("Duracao do shift (Shift Length): %.1f\n", config_ptr->shift_length);
     printf("Message queue (MQ): %d\n", config_ptr->mq_max);
 }
 void *worker(){
@@ -133,9 +133,9 @@ void create_shared_memory(){
     /*Dados teste*/
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
     printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
-    printf("Tempo média de espera antes do inicio da triagem: %f\n", stats_ptr->wait_btime);
-    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %f\n", stats_ptr->wait_etime);
-    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %f\n", stats_ptr->wait_time);
+    printf("Tempo média de espera antes do inicio da triagem: %.1f\n", stats_ptr->wait_btime);
+    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
+    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
 
 }
 
@@ -163,7 +163,7 @@ int main(){
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
-        return(-1);
+        return(1);
     }else{
         printf("Memory successfully allocated\n");
         }
