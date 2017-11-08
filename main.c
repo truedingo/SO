@@ -15,6 +15,9 @@
 #include <sys/shm.h>
 #include "header.h"
 
+stats *stats_ptr;
+int shmid;
+
 /*Função que le do ficheiro e armazena na estrutura*/
 void read_from_file(){
     FILE *fp = fopen("config.txt", "r");
@@ -78,16 +81,15 @@ void thread_pool(){
 void kill_process(int pid){
     if(kill(pid, SIGTERM) != 0){
         perror("Error killing process\n");
-        exit(0);
+        exit(1);
     }
     printf("Process with ID %d killed\n", getpid());
 }
 
-void fork_call(){
+void fork_call(int){
     printf("Hello! I'm a doctor process, ready to help you!\n");
-    sleep(3);
+    sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
-    exit(0);
 }
 
 void process_creator(){
@@ -104,11 +106,52 @@ void process_creator(){
         }
         else if (forkValue < 0){
             perror("Error creating process\n");
+            exit(1);
         }
-        else
+        else{
             wait(NULL);
-        /*kill_process(pid);*/		
+            exit(0);
+        }	
 	}
+}
+
+void dynamic_processes(){
+    printf("Dynamically creating doctor processes\n");
+    while(true){
+        process_creator();
+    }
+}
+
+void create_shared_memory(){
+    if(shmid = shmget(IPC_PRIVATE, sizeof(stats), IPC_CREAT |0766)) == -1){
+        perror("Error creating shared memory\n");   
+        exit(1);
+    }
+    stats_ptr = (stats*) shmat(shmid, NULL, 0);
+    printf("Shared memory sucessfully at address %p\n", stats_ptr);
+    printf("Shared memory at %d\n", shmid);
+    stats_ptr->num_triage=0;
+    stats_ptr->num_service=0;
+    stats_ptr->wait_btime=0;
+    stats_ptr->wait_etime=0;
+    stats_ptr->wait_time=0;
+    /*Dados teste*/
+    printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
+    printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
+    printf("Tempo média de espera antes do inicio da triagem: %d\n", stats_ptr->wait_btime);
+    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %d\n", stats_ptr->wait_etime);
+    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %d", stats_ptr->wait_time);
+
+}
+
+void cleanup_sm(){
+    if(shmdt(stats_ptr)) == -1){
+        perror("Error using shmdt\n");
+        exit(1);
+    }
+    if(shmctl(shmid, IPC_RMID, 0) == -1){
+        perror("Error unmapping shared memory\n");
+    }
 }
 
 
@@ -122,6 +165,7 @@ int main(){
         }
     read_from_file();
     thread_pool();
+    /*dynamic_processes();*/
     process_creator();
     printf("Exiting...\n");
     exit(0);

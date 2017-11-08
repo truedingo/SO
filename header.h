@@ -4,6 +4,9 @@
 /*Server.c*/
 void read_from_file();
 void thread_pool();
+void *worker();
+void kill_process();
+void process_creator();
 
 /*Estrutura para config.txt
 //triage -> nthreads
@@ -36,14 +39,14 @@ typedef struct patient{
 /*Cria pointer para estrutura patient*/
 patient *patient_ptr;
 
-/*Estrutura para as estatísticas
-//num_triage -> Número de pacientes triados
-//num_service -> Número de pacientes atendidos
-//wait_btime -> Tempo médio de espera antes do início triagem
-//wait_etime -> Tempo médio de espera entre o fim da triagem e
-//o início do atendimento
-//wait_time -> Média do tempo total que cada paciente gastou desde
-//que chegou ao sistema até sair*/
+/*Estrutura para as estatÃ­sticas
+//num_triage -> NÃºmero de pacientes triados
+//num_service -> NÃºmero de pacientes atendidos
+//wait_btime -> Tempo mÃ©dio de espera antes do inÃ­cio triagem
+//wait_etime -> Tempo mÃ©dio de espera entre o fim da triagem e
+//o inÃ­cio do atendimento
+//wait_time -> MÃ©dia do tempo total que cada paciente gastou desde
+//que chegou ao sistema atÃ© sair*/
 
 typedef struct stats{
     int num_triage;
