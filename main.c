@@ -105,6 +105,8 @@ void process_creator(){
         else if (forkValue < 0){
             perror("Error creating process\n");
         }
+        else
+            wait(NULL);
         /*kill_process(pid);*/		
 	}
 }
