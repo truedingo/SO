@@ -14,11 +14,13 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "header.h"
+#include <signal.h>
 
 stats *stats_ptr;
+config *config_ptr;
 int shmid;
 
-/*Função que le do ficheiro e armazena na estrutura*/
+/*FunÃ§Ã£o que le do ficheiro e armazena na estrutura*/
 void read_from_file(){
     FILE *fp = fopen("config.txt", "r");
     if (!fp){
@@ -77,15 +79,6 @@ void thread_pool(){
 
 }
 
-/*Not doing anything*/
-void kill_process(int pid){
-    if(kill(pid, SIGTERM) != 0){
-        perror("Error killing process\n");
-        exit(1);
-    }
-    printf("Process with ID %d killed\n", getpid());
-}
-
 void fork_call(){
     printf("Hello! I'm a doctor process, ready to help you!\n");
     sleep(config_ptr->shift_length);
@@ -102,21 +95,24 @@ void process_creator(){
         if(forkValue == 0){
             printf("Doctor on service! My ID is %d\n", pid);
             fork_call();
+            //LIBERTAR SEMAFORO -1
             exit(0);
         }
         else if (forkValue < 0){
             perror("Error creating process\n");
             exit(1);
         }
-        else{
-            wait(NULL);
-        }	
 	}
+    for(i=0; i<config_ptr->doctors; i++){
+        wait(NULL);
+    }
 }
 
 void dynamic_processes(){
+    //CRIAR SEMAFORO ESTE SEMAFOR PODE SER POSSUIDO 10 VEZES
     printf("Dynamically creating doctor processes\n");
     while(1){
+        //POSSUIR SEMAFORO +1
         process_creator();
     }
 }
@@ -135,11 +131,11 @@ void create_shared_memory(){
     stats_ptr->wait_etime=0;
     stats_ptr->wait_time=0;
     /*Dados teste*/
-    printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
-    printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
-    printf("Tempo média de espera antes do inicio da triagem: %f\n", stats_ptr->wait_btime);
-    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %f\n", stats_ptr->wait_etime);
-    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %f\n", stats_ptr->wait_time);
+    printf("NÃºmero de pacientes triados: %d\n", stats_ptr->num_triage);
+    printf("NÃºmero de pacientes atendidos: %d\n", stats_ptr->num_service);
+    printf("Tempo mÃ©dia de espera antes do inicio da triagem: %f\n", stats_ptr->wait_btime);
+    printf("Tempo mÃ©dia de espera entre o fim da triagem e o inÃ­cio do atendimento: %f\n", stats_ptr->wait_etime);
+    printf("MÃ©dia do tempo total que cada paciente gastou desde que chegou ao sistema atÃ© sair: %f\n", stats_ptr->wait_time);
 
 }
 
@@ -154,8 +150,16 @@ void cleanup_sm(){
     printf("Sucessfully shmctl'd\n");
 }
 
+void signal_handler(int signum){
+    cleanup_sm();
+    kill(0, SIGKILL);
+    free(config_ptr);
+    exit(0);
+}
+
 
 int main(){
+    signal(SIGINT, signal_handler);
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
@@ -166,9 +170,7 @@ int main(){
     read_from_file();
     create_shared_memory();
     thread_pool();
-    /*dynamic_processes();*/
-    process_creator();
+    dynamic_processes();
     printf("Exiting...\n");
-    cleanup_sm();
     exit(0);
 }
