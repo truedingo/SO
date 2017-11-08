@@ -86,7 +86,7 @@ void kill_process(int pid){
     printf("Process with ID %d killed\n", getpid());
 }
 
-void fork_call(int){
+void fork_call(){
     printf("Hello! I'm a doctor process, ready to help you!\n");
     sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
@@ -110,20 +110,19 @@ void process_creator(){
         }
         else{
             wait(NULL);
-            exit(0);
         }	
 	}
 }
 
 void dynamic_processes(){
     printf("Dynamically creating doctor processes\n");
-    while(true){
+    while(1){
         process_creator();
     }
 }
 
 void create_shared_memory(){
-    if(shmid = shmget(IPC_PRIVATE, sizeof(stats), IPC_CREAT |0766)) == -1){
+    if((shmid = shmget(IPC_PRIVATE, sizeof(stats), IPC_CREAT |0766)) == -1){
         perror("Error creating shared memory\n");   
         exit(1);
     }
@@ -138,20 +137,21 @@ void create_shared_memory(){
     /*Dados teste*/
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
     printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
-    printf("Tempo média de espera antes do inicio da triagem: %d\n", stats_ptr->wait_btime);
-    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %d\n", stats_ptr->wait_etime);
-    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %d", stats_ptr->wait_time);
+    printf("Tempo média de espera antes do inicio da triagem: %f\n", stats_ptr->wait_btime);
+    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %f\n", stats_ptr->wait_etime);
+    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %f\n", stats_ptr->wait_time);
 
 }
 
 void cleanup_sm(){
-    if(shmdt(stats_ptr)) == -1){
+    if(shmdt(stats_ptr) == -1){
         perror("Error using shmdt\n");
-        exit(1);
     }
+    printf("Sucessfully shmdt'd\n");
     if(shmctl(shmid, IPC_RMID, 0) == -1){
         perror("Error unmapping shared memory\n");
     }
+    printf("Sucessfully shmctl'd\n");
 }
 
 
@@ -164,9 +164,11 @@ int main(){
         printf("Memory successfully allocated\n");
         }
     read_from_file();
+    create_shared_memory();
     thread_pool();
     /*dynamic_processes();*/
     process_creator();
     printf("Exiting...\n");
+    cleanup_sm();
     exit(0);
 }
