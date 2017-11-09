@@ -28,6 +28,7 @@ sem_t *sem_waite;
 sem_t *sem_waiting;
 sem_t *sem_control;
 pid_t parent_pid;
+pid_t atual_pid;
 
 void initialize_semaphores(){
     /*Dar unlink dos semaforos por questãos de segurança*/
@@ -129,9 +130,9 @@ void process_creator(){
     int forkValue;
 	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
-        pid = getpid();
-        parent_pid = getppid();
         if(forkValue == 0){
+            signal(SIGINT,SIG_IGN);
+            pid = getpid();
             printf("Doctor on service! My ID is %d\n", pid);
             fork_call();
             //LIBERTAR SEMAFORO -1
@@ -190,7 +191,7 @@ void cleanup_sm(){
         perror("Error using shmdt\n");
     }
     printf("Sucessfully shmdt'd\n");
-    if(shmctl(shmid, IPC_RMID, 0) == -1){
+    if(shmctl(shmid, IPC_RMID, NULL) == -1){
         perror("Error unmapping shared memory\n");
     }
     printf("Sucessfully shmctl'd\n");
@@ -213,12 +214,13 @@ void shutdown_semaphores(){
 
 
 void signal_handler(int signum){
-    /*while(wait(NULL)>0);*/
-    stats_results();
+    while(wait(NULL)>0);
     shutdown_semaphores();
-    free(config_ptr);
+    stats_results();
     cleanup_sm();
+    free(config_ptr);
     kill(0, SIGKILL);
+    exit(0);
 }
 
 void startup(){
