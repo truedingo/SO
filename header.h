@@ -7,6 +7,18 @@ void thread_pool();
 void *worker();
 void kill_process();
 void process_creator();
+void initialize_semaphores();
+void service_stats();
+void triage_stats();
+void fork_call();
+void dynamic_processes();
+void create_shared_memory();
+void stats_results();
+void cleanup_sm();
+void shutdown_semaphores();
+void signal_handler();
+void startup();
+
 
 /*Estrutura para config.txt
 //triage -> nthreads

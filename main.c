@@ -15,10 +15,34 @@
 #include <sys/shm.h>
 #include "header.h"
 #include <signal.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 stats *stats_ptr;
 config *config_ptr;
 int shmid;
+sem_t *sem_triage;
+sem_t *sem_service;
+sem_t *sem_waitb;
+sem_t *sem_waite;
+sem_t *sem_waiting;
+sem_t *sem_control;
+pid_t parent_pid;
+
+void initialize_semaphores(){
+    /*Dar unlink dos semaforos por questãos de segurança*/
+    sem_unlink("sem_triage");
+    sem_unlink("sem_service");
+    sem_unlink("sem_waitb");
+    sem_unlink("sem_waite");
+    sem_unlink("sem_waiting");
+    /*Dar open dos semaforos*/
+    sem_triage = sem_open("sem_triage", O_CREAT | O_EXCL, 0700, 1);
+    sem_service = sem_open("sem_service", O_CREAT | O_EXCL, 0700, 1);
+    sem_waitb = sem_open("sem_waitb", O_CREAT | O_EXCL, 0700, 1);
+    sem_waite = sem_open("sem_waite", O_CREAT | O_EXCL, 0700, 1);
+    sem_waiting = sem_open("sem_waiting", O_CREAT | O_EXCL, 0700, 1);
+}
 
 /*Função que le do ficheiro e armazena na estrutura*/
 void read_from_file(){
@@ -55,6 +79,18 @@ void *worker(){
     pthread_exit(NULL);
 }
 
+void service_stats(){
+    sem_wait(sem_service);
+    (stats_ptr->num_service)++;
+    sem_post(sem_service);
+}
+
+void triage_stats(){
+    sem_wait(sem_triage);
+    (stats_ptr->num_triage)++;
+    sem_post(sem_triage);    
+}
+
 void thread_pool(){
     int i=0;
     pthread_t triage_thread[config_ptr->triage];
@@ -63,6 +99,7 @@ void thread_pool(){
         triage_id[i] = i;
         if(pthread_create(&triage_thread[i], NULL, worker, &triage_id[i])==0){
             printf("Triage thread %d was created\n", triage_id[i]);
+            triage_stats();
         }
         else{
             perror("Error creating Triage thread\n");
@@ -81,6 +118,7 @@ void thread_pool(){
 
 void fork_call(){
     printf("Hello! I'm a doctor process, ready to help you!\n");
+    service_stats();
     sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
 }
@@ -92,6 +130,7 @@ void process_creator(){
 	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
         pid = getpid();
+        parent_pid = getppid();
         if(forkValue == 0){
             printf("Doctor on service! My ID is %d\n", pid);
             fork_call();
@@ -103,9 +142,7 @@ void process_creator(){
             exit(1);
         }
 	}
-    for(i=0; i<config_ptr->doctors; i++){
-        wait(NULL);
-    }
+    while(wait(NULL)>0);
 }
 
 void dynamic_processes(){
@@ -139,6 +176,15 @@ void create_shared_memory(){
 
 }
 
+void stats_results(){
+    printf("Final results:\n");
+    printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
+    printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
+    printf("Tempo média de espera antes do inicio da triagem: %.1f\n", stats_ptr->wait_btime);
+    printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
+    printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
+}
+
 void cleanup_sm(){
     if(shmdt(stats_ptr) == -1){
         perror("Error using shmdt\n");
@@ -150,13 +196,38 @@ void cleanup_sm(){
     printf("Sucessfully shmctl'd\n");
 }
 
-void signal_handler(int signum){
-    cleanup_sm();
-    kill(0, SIGKILL);
-    free(config_ptr);
-    exit(0);
+
+void shutdown_semaphores(){
+    sem_unlink("sem_triage");
+    sem_unlink("sem_service");
+    sem_unlink("sem_waitb");
+    sem_unlink("sem_waite");
+    sem_unlink("sem_waiting");
+
+    sem_close(sem_triage);
+    sem_close(sem_service);
+    sem_close(sem_waitb);
+    sem_close(sem_waite);
+    sem_close(sem_waiting);
 }
 
+
+void signal_handler(int signum){
+    /*while(wait(NULL)>0);*/
+    stats_results();
+    shutdown_semaphores();
+    free(config_ptr);
+    cleanup_sm();
+    kill(0, SIGKILL);
+}
+
+void startup(){
+    read_from_file();
+    initialize_semaphores();
+    create_shared_memory();
+    thread_pool();
+    dynamic_processes();
+}
 
 int main(){
     signal(SIGINT, signal_handler);
@@ -167,10 +238,7 @@ int main(){
     }else{
         printf("Memory successfully allocated\n");
         }
-    read_from_file();
-    create_shared_memory();
-    thread_pool();
-    dynamic_processes();
+    startup();
     printf("Exiting...\n");
     exit(0);
 }
