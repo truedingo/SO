@@ -1,22 +1,6 @@
-#include <stdio.h>
-#include <sys/types.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <sys/stat.h>
-#include <pthread.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
+
 #include "header.h"
-#include <signal.h>
-#include <semaphore.h>
-#include <fcntl.h>
+
 
 stats *stats_ptr;
 config *config_ptr;
@@ -27,8 +11,6 @@ sem_t *sem_waitb;
 sem_t *sem_waite;
 sem_t *sem_waiting;
 sem_t *sem_control;
-pid_t parent_pid;
-pid_t atual_pid;
 
 void initialize_semaphores(){
     /*Dar unlink dos semaforos por questãos de segurança*/
@@ -68,10 +50,13 @@ void read_from_file(){
     fclose(fp);
 
     /*Teste*/
-    printf("Numero de threads (Triage): %d\n", config_ptr->triage);
-    printf("Numero de processos (Doctors): %d\n", config_ptr->doctors);
-    printf("Duracao do shift (Shift Length): %.1f\n", config_ptr->shift_length);
-    printf("Message queue (MQ): %d\n", config_ptr->mq_max);
+    printf("----------READ FROM FILE----------\n");
+    printf("\nNumero de threads (Triage): %d\n", config_ptr->triage);
+    printf("\nNumero de processos (Doctors): %d\n", config_ptr->doctors);
+    printf("\nDuracao do shift (Shift Length): %.1f\n", config_ptr->shift_length);
+    printf("\nMessage queue (MQ): %d\n", config_ptr->mq_max);
+    printf("----------------------------------\n");
+    printf("\n");
 }
 void *worker(){
     printf("Hello! I'm Triage thread!\n");
@@ -144,11 +129,18 @@ void process_creator(){
         }
 	}
     while(wait(NULL)>0);
+    /*Para a criação dinâmica, verificar message queue e os
+    seus contéudos (se o que está na queue é >= 0,8) criar
+    o processo temporário, ir verificando se a message queue
+    desce dos 80% de capacidade*/
+    /*Utilizar um if e depois um while para assegurar que o
+    processo só se encontra ativo enquanto a message queue estiver
+    no estado para tal*/
 }
 
-void dynamic_processes(){
+void while_processes(){
     //CRIAR SEMAFORO ESTE SEMAFOR PODE SER POSSUIDO 10 VEZES
-    printf("Dynamically creating doctor processes\n");
+    printf("Creating doctor processes\n");
     while(1){
         //POSSUIR SEMAFORO +1
         process_creator();
@@ -161,29 +153,35 @@ void create_shared_memory(){
         exit(1);
     }
     stats_ptr = (stats*) shmat(shmid, NULL, 0);
-    printf("Shared memory sucessfully at address %p\n", stats_ptr);
-    printf("Shared memory at %d\n", shmid);
+    printf("----------SHARED MEMORY----------\n");
+    printf("\nShared memory sucessfully at address %p\n", stats_ptr);
+    printf("\nShared memory at %d\n", shmid);
+    printf("---------------------------------\n");
     stats_ptr->num_triage=0;
     stats_ptr->num_service=0;
     stats_ptr->wait_btime=0;
     stats_ptr->wait_etime=0;
     stats_ptr->wait_time=0;
     /*Dados teste*/
+    printf("----------RESULTS----------\n");
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
     printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
     printf("Tempo média de espera antes do inicio da triagem: %.1f\n", stats_ptr->wait_btime);
     printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
     printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
+    printf("---------------------------\n");
 
 }
 
 void stats_results(){
+    printf("----------FINAL RESULTS----------\n");
     printf("Final results:\n");
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
     printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
     printf("Tempo média de espera antes do inicio da triagem: %.1f\n", stats_ptr->wait_btime);
     printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
     printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
+    printf("---------------------------------\n");
 }
 
 void cleanup_sm(){
@@ -228,7 +226,7 @@ void startup(){
     initialize_semaphores();
     create_shared_memory();
     thread_pool();
-    dynamic_processes();
+    while_processes();
 }
 
 int main(){

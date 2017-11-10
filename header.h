@@ -1,5 +1,21 @@
-#include <stdlib.h>
+#include <signal.h>
+#include <semaphore.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <pthread.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 /*Server.c*/
 void read_from_file();
@@ -11,7 +27,7 @@ void initialize_semaphores();
 void service_stats();
 void triage_stats();
 void fork_call();
-void dynamic_processes();
+void while_processes();
 void create_shared_memory();
 void stats_results();
 void cleanup_sm();
