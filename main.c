@@ -1,5 +1,6 @@
 
 #include "header.h"
+#define PIPE_NAME "input_pipe"
 
 
 stats *stats_ptr;
@@ -195,6 +196,84 @@ void cleanup_sm(){
     printf("Sucessfully shmctl'd\n");
 }
 
+void create_named_pipe(){
+    int fd;
+    if((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST)){
+        perror("Error creating named pipe: ");
+        exit(0);
+    }
+
+    printf("Named pipe successfully created\n");
+
+    if((fd = open(PIPE_NAME, O_RDONLY))< 0){
+        perror("Error opening pipe for reading: ");
+        exit(0);
+    }
+    /*
+
+    Named pipe recebe dados e manda para uma queue (lista ligada)
+    ler sobre merda dos selects e sets e o crl*/
+    
+
+}
+
+PatientList create_patient_list(void){
+
+    PatientList patient_node;
+    patient_node = (PatientList) malloc(sizeof(node_Patient));
+
+    if(patient_node != NULL){
+        patient_node->next = NULL;
+    }
+    printf("List created\n");
+    return patient_node;
+}
+
+int empty_patient_list(PatientList list){
+
+    return (list->next == NULL ? 1 : 0);
+}
+
+PatientList destroy_patient_list(PatientList list){
+
+    PatientList ptr;
+    while(empty_patient_list(list) == 0){
+        ptr = list;
+        list = list->next;
+        free(ptr);
+    }
+    free(list);
+    return NULL;
+}
+
+void insert_patient(char name[30], float triage, float service, int priority, PatientList patients){
+    PatientList newPatient;
+    PatientList atual = patients;
+    newPatient = malloc(sizeof(node_Patient));
+    while(atual->next!= NULL){
+        atual = atual->next;
+    }
+    strcpy(newPatient->patient.name, name);
+    newPatient->patient.triage_time = triage;
+    newPatient->patient.service_time = service;
+    newPatient->patient.priority = priority;
+    atual->next = newPatient;
+    newPatient->next = NULL;
+
+}
+
+void list_patient(PatientList listaPacientes){
+    PatientList patients;
+    patients = listaPacientes->next;
+    while(patients != NULL){
+        printf("Nome: %s\n", patients->patient.name);
+        printf("Triagem: %f\n", patients->patient.triage_time);
+        printf("Service: %f\n", patients->patient.service_time);
+        printf("Priority: %d\n", patients->patient.priority);
+        patients = patients->next;
+    } 
+}
+
 
 void shutdown_semaphores(){
     sem_unlink("sem_triage");
@@ -230,7 +309,7 @@ void startup(){
 }
 
 int main(){
-    signal(SIGINT, signal_handler);
+    /*signal(SIGINT, signal_handler);
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
@@ -240,5 +319,12 @@ int main(){
         }
     startup();
     printf("Exiting...\n");
-    exit(0);
+    exit(0);*/
+    PatientList patients;
+    patients = create_patient_list();
+    insert_patient("Diogo", 10, 20, 3, patients);
+    insert_patient("Hipolito", 10, 20, 3, patients);
+    insert_patient("Artur", 10, 20, 3, patients);
+    insert_patient("Luis", 10, 20, 3, patients);
+    list_patient(patients);
 }
