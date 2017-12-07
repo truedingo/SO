@@ -19,6 +19,8 @@
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#define MAX 50
+#define PIPE_NAME "input_pipe"
 
 /*Server.c*/
 void read_from_file();

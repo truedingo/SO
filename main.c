@@ -1,11 +1,11 @@
 
 #include "header.h"
-#define PIPE_NAME "input_pipe"
 
 
 stats *stats_ptr;
 config *config_ptr;
 int shmid;
+int fd;
 sem_t *sem_triage;
 sem_t *sem_service;
 sem_t *sem_waitb;
@@ -197,7 +197,6 @@ void cleanup_sm(){
 }
 
 void create_named_pipe(){
-    int fd;
     if((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST)){
         perror("Error creating named pipe: ");
         exit(0);
@@ -267,13 +266,60 @@ void list_patient(PatientList listaPacientes){
     patients = listaPacientes->next;
     while(patients != NULL){
         printf("Nome: %s\n", patients->patient.name);
-        printf("Triagem: %f\n", patients->patient.triage_time);
-        printf("Service: %f\n", patients->patient.service_time);
+        printf("Triagem: %.1f\n", patients->patient.triage_time);
+        printf("Service: %.1f\n", patients->patient.service_time);
         printf("Priority: %d\n", patients->patient.priority);
         patients = patients->next;
     } 
 }
 
+void read_pipe(PatientList patients){
+    
+    char buffer[MAX];
+    char name[50];
+    float service;
+    float triage;
+    int priority;
+    char checker[20];
+    char date[30];
+    char appender[30];
+    time_t time_format;
+    struct tm *my_time;
+    while(1){
+        read(fd, buffer, MAX);
+        printf("Received: %s\n", buffer);
+        strcpy(checker, strtok(buffer, ";"));
+        for(int i=0; i < strlen(checker); i++){
+            if (!isdigit(checker[i])){
+                strcpy(name, checker);
+                triage = atoi(strtok(NULL, ";"));
+                service = atoi(strtok(NULL, ";"));
+                priority = atoi(strtok(NULL, ";"));
+                insert_patient(name, triage, service, priority, patients);
+                break;
+
+            }
+            else{
+                time(&time_format);
+                my_time = localtime(&time_format);
+                if(strftime(date, 30, "%Y%m%d", my_time)==0){
+                    perror("Couldn't format string");
+                }
+                for(int i=1; i<=atoi(checker); i++){
+                    strcpy(name, date);
+                    sprintf(appender, "%d", i);
+                    strcat(name, "-");
+                    strcat(name, appender);
+                    insert_patient(name, triage, service, priority, patients);
+                }
+                break;
+                            
+            }
+        }
+
+        list_patient(patients);
+    }
+}
 
 void shutdown_semaphores(){
     sem_unlink("sem_triage");
@@ -322,9 +368,6 @@ int main(){
     exit(0);*/
     PatientList patients;
     patients = create_patient_list();
-    insert_patient("Diogo", 10, 20, 3, patients);
-    insert_patient("Hipolito", 10, 20, 3, patients);
-    insert_patient("Artur", 10, 20, 3, patients);
-    insert_patient("Luis", 10, 20, 3, patients);
-    list_patient(patients);
+    create_named_pipe();
+    read_pipe(patients);
 }
