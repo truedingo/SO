@@ -12,6 +12,7 @@ sem_t *sem_waitb;
 sem_t *sem_waite;
 sem_t *sem_waiting;
 sem_t *sem_control;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void initialize_semaphores(){
     /*Dar unlink dos semaforos por questãos de segurança*/
@@ -60,10 +61,10 @@ void read_from_file(){
     printf("\n");
 }
 void *worker(){
-    printf("Hello! I'm Triage thread!\n");
-    sleep(2);
-    printf("Triage thread is leaving... :(\n");
-    pthread_exit(NULL);
+    pthread_mutex_lock(&mutex);
+
+    pthread_mutex_unlock(&mutex);
+    exit(0);
 }
 
 void service_stats(){
@@ -92,6 +93,10 @@ void thread_pool(){
             perror("Error creating Triage thread\n");
         }
     }
+
+}
+
+/*void kill_threads(){
     for(i=0; i<config_ptr->triage; i++){
         if(pthread_join(triage_thread[i], NULL)==0){
             printf("Triage thread %d was killed\n", triage_id[i]);
@@ -100,8 +105,7 @@ void thread_pool(){
             perror("Error killing Triage thread\n");
         }
     }
-
-}
+}*/
 
 void fork_call(){
     printf("Hello! I'm a doctor process, ready to help you!\n");
@@ -273,6 +277,32 @@ void list_patient(PatientList listaPacientes){
     } 
 }
 
+void delete_patient_node(PatientList listaPacientes){
+    PatientList act = listaPacientes->next;
+    act = act->next;
+    free(listaPacientes);
+    listaPacientes = act;
+}
+
+Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
+    PatientList atual;
+    atual = listaPacientes->next;
+    if(empty_patient_list(listaPacientes)==1){
+        printf("Empty list\n");
+    }
+    else{
+        returnedPatient = atual->patient;
+        /*delete_patient_node(listaPacientes);*/
+    }
+    printf("RETURNED PATIENT:\n");
+    printf("%s\n",returnedPatient.name);
+    printf("%1f\n",returnedPatient.triage_time);
+    printf("%1f\n",returnedPatient.service_time);
+    printf("%d\n",returnedPatient.priority);
+    return returnedPatient;
+
+}
+
 void read_pipe(PatientList patients){
     
     char buffer[MAX];
@@ -354,6 +384,7 @@ void signal_handler(int signum){
     shutdown_semaphores();
     stats_results();
     cleanup_sm();
+    /*kill_threads();*/
     free(config_ptr);
     kill(0, SIGKILL);
     exit(0);
@@ -380,7 +411,13 @@ int main(){
     printf("Exiting...\n");
     exit(0);*/
     PatientList patients;
+    Patient returnedPatient;
     patients = create_patient_list();
-    create_named_pipe();
-    read_pipe(patients);
+    /*create_named_pipe();
+    read_pipe(patients);*/
+    insert_patient("joao", 50, 10, 3, patients);
+    insert_patient("artur", 50, 10, 3, patients);
+    list_patient(patients);
+    get_patient(patients, returnedPatient);
+    list_patient(patients);
 }
