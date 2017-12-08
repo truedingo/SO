@@ -311,48 +311,47 @@ void read_pipe(PatientList patients){
     char checker[20];
     char date[30];
     char appender[30];
-
     time_t time_format;
     struct tm *my_time;
     int counter=0;
+    int i = 1;
     while(1){
         read(fd, buffer, MAX);
         printf("Received: %s\n", buffer);
         for(int i=0; i< strlen(buffer); i++){
             if(buffer[i] == ';'){
-                printf("%c\n", buffer[i]);
                 counter+=1;
             }
         }
         if(counter == 3){
             strcpy(checker, strtok(buffer, ";"));
-            for(int i=0; i < strlen(checker); i++){
-                if (!isdigit(checker[i])){
-                    strcpy(name, checker);
-                    triage = atoi(strtok(NULL, ";"));
-                    service = atoi(strtok(NULL, ";"));
-                    priority = atoi(strtok(NULL, ";"));
-                    insert_patient(name, triage, service, priority, patients);
-                    break;
+            if (!isdigit(checker[0])){
+                strcpy(name, checker);
+                triage = atoi(strtok(NULL, ";"));
+                service = atoi(strtok(NULL, ";"));
+                priority = atoi(strtok(NULL, ";"));
+                insert_patient(name, triage, service, priority, patients);
 
                 }
-                else{
-                    time(&time_format);
-                    my_time = localtime(&time_format);
-                    if(strftime(date, 30, "%Y%m%d", my_time)==0){
-                        perror("Couldn't format string");
-                    }
-                    for(int i=1; i<=atoi(checker); i++){
-                        strcpy(name, date);
-                        sprintf(appender, "%d", i);
-                        strcat(name, "-");
-                        strcat(name, appender);
-                        insert_patient(name, triage, service, priority, patients);
-                        }
-                    break;
+            else{
+                time(&time_format);
+                my_time = localtime(&time_format);
+                if(strftime(date, 30, "%Y%m%d", my_time)==0){
+                    perror("Couldn't format string");
+                }
+                triage= atoi(strtok(NULL, ";"));
+                service= atoi(strtok(NULL, ";"));
+                priority= atoi(strtok(NULL, ";"));
+                for(int k=1; k<=atoi(checker); k++){
+                    strcpy(name, date);
+                    sprintf(appender, "%d", i);
+                    strcat(name, "-");
+                    strcat(name, appender);
+                    insert_patient(name, triage, service, priority, patients);
+                    i+=1;
+                }
                                 
                     }
-                }
         }
         else{
             printf("Invalid input\n");
@@ -411,11 +410,11 @@ int main(){
     PatientList patients;
     Patient returnedPatient;
     patients = create_patient_list();
-    /*create_named_pipe();
-    read_pipe(patients);*/
-    insert_patient("joao", 50, 10, 3, patients);
+    create_named_pipe();
+    read_pipe(patients);
+    /*insert_patient("joao", 50, 10, 3, patients);
     insert_patient("artur", 50, 10, 3, patients);
     list_patient(patients);
     get_patient(patients, returnedPatient);
-    list_patient(patients);
+    list_patient(patients);*/
 }
