@@ -277,11 +277,10 @@ void list_patient(PatientList listaPacientes){
     } 
 }
 
-void delete_patient_node(PatientList listaPacientes){
-    PatientList act = listaPacientes->next;
-    act = act->next;
-    free(listaPacientes);
-    listaPacientes = act;
+PatientList delete_patient_node(PatientList listaPacientes){
+    PatientList aux = listaPacientes->next;
+    listaPacientes->next = aux->next;
+    free(aux);
 }
 
 Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
@@ -292,15 +291,14 @@ Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
     }
     else{
         returnedPatient = atual->patient;
-        /*delete_patient_node(listaPacientes);*/
+        delete_patient_node(listaPacientes);
+        printf("RETURNED PATIENT:\n");
+        printf("%s\n",returnedPatient.name);
+        printf("%1f\n",returnedPatient.triage_time);
+        printf("%1f\n",returnedPatient.service_time);
+        printf("%d\n",returnedPatient.priority);
     }
-    printf("RETURNED PATIENT:\n");
-    printf("%s\n",returnedPatient.name);
-    printf("%1f\n",returnedPatient.triage_time);
-    printf("%1f\n",returnedPatient.service_time);
-    printf("%d\n",returnedPatient.priority);
     return returnedPatient;
-
 }
 
 void read_pipe(PatientList patients){
