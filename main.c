@@ -367,9 +367,14 @@ void read_pipe(PatientList patients){
                     strcpy(checker, strtok(buffer, "="));
                     if(strcmp(checker, "TRIAGE") == 0){
                         thread_val = atoi(strtok(NULL, "="));
-                        printf("I'm gonna create this much threads: %d!\n",thread_val);
-                        printf("Creating auxiliar treads...\n");
-                        /*Funcao que cria threads auxiliares*/
+                        if(thread_val == 0){
+                            printf("Invalid input\n");
+                        }
+                        else{
+                            printf("I'm gonna create this much threads: %d!\n",thread_val);
+                            printf("Creating auxiliar treads...\n");
+                            /*Funcao que cria threads auxiliares*/
+                    }
 
                     }
                     else{
