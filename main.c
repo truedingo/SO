@@ -357,24 +357,36 @@ void read_pipe(PatientList patients){
                     list_patient(patients);
         }
         else{
-            printf("%s\n", buffer);
             for(int j=0; j<strlen(buffer); j++){
                 if(buffer[j] == '='){
                     triage_counter+=1;
                 }
             }
             if(triage_counter==1){
-                strcpy(checker, strtok(buffer, "="));
-                if((strcmp(checker, "TRIAGE") == 0) & (buffer[(strlen(buffer))-1] != "=")){
-                    thread_val = atoi(strtok(NULL, "="));
-                    printf("I'm gonna create this much threads: %d!\n",thread_val);
-                    printf("Creating auxiliar treads...\n");
-                    /*Funcao que cria threads auxiliares*/
+                if(buffer[strlen(buffer)-1] != '='){
+                    strcpy(checker, strtok(buffer, "="));
+                    if(strcmp(checker, "TRIAGE") == 0){
+                        thread_val = atoi(strtok(NULL, "="));
+                        printf("I'm gonna create this much threads: %d!\n",thread_val);
+                        printf("Creating auxiliar treads...\n");
+                        /*Funcao que cria threads auxiliares*/
 
+                    }
+                    else{
+                        printf("Invalid input\n");
+                    }
                 }
                 else{
                     printf("Invalid input\n");
                 }
+            }
+            else{
+                if(strcmp(buffer, "STATS") == 0){
+                    printf("Generating stats...\n");
+                    /*Função que chama estatisticas*/
+                }
+                else
+                    printf("Invalid input\n");
             }
         }
         counter=0;
