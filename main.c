@@ -314,7 +314,9 @@ void read_pipe(PatientList patients){
     time_t time_format;
     struct tm *my_time;
     int counter=0;
+    int triage_counter=0;
     int i = 1;
+    int thread_val=0;
     while(1){
         read(fd, buffer, MAX);
         printf("Received: %s\n", buffer);
@@ -352,12 +354,31 @@ void read_pipe(PatientList patients){
                 }
                                 
                     }
+                    list_patient(patients);
         }
         else{
-            printf("Invalid input\n");
+            printf("%s\n", buffer);
+            for(int j=0; j<strlen(buffer); j++){
+                if(buffer[j] == '='){
+                    triage_counter+=1;
+                }
+            }
+            if(triage_counter==1){
+                strcpy(checker, strtok(buffer, "="));
+                if((strcmp(checker, "TRIAGE") == 0) & (buffer[(strlen(buffer))-1] != "=")){
+                    thread_val = atoi(strtok(NULL, "="));
+                    printf("I'm gonna create this much threads: %d!\n",thread_val);
+                    printf("Creating auxiliar treads...\n");
+                    /*Funcao que cria threads auxiliares*/
+
+                }
+                else{
+                    printf("Invalid input\n");
+                }
+            }
         }
         counter=0;
-        list_patient(patients);
+        triage_counter=0;
     }
 }
 
