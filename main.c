@@ -62,7 +62,6 @@ void read_from_file(){
 }
 void *worker(){
     pthread_mutex_lock(&mutex);
-
     pthread_mutex_unlock(&mutex);
     exit(0);
 }
@@ -398,6 +397,8 @@ void read_pipe(PatientList patients){
         triage_counter=0;
     }
 }
+
+
 
 void shutdown_semaphores(){
     sem_unlink("sem_triage");
