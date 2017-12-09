@@ -13,9 +13,12 @@ sem_t *sem_waitb;
 sem_t *sem_waite;
 sem_t *sem_waiting;
 sem_t *sem_control;
+sem_t *sem_processes;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 PatientList patients;
 Patient returnedPatient;
+int value=0;
 
 void initialize_semaphores(){
     /*Dar unlink dos semaforos por questãos de segurança*/
@@ -24,12 +27,14 @@ void initialize_semaphores(){
     sem_unlink("sem_waitb");
     sem_unlink("sem_waite");
     sem_unlink("sem_waiting");
+    sem_unlink("sem_processes");
     /*Dar open dos semaforos*/
     sem_triage = sem_open("sem_triage", O_CREAT | O_EXCL, 0700, 1);
     sem_service = sem_open("sem_service", O_CREAT | O_EXCL, 0700, 1);
     sem_waitb = sem_open("sem_waitb", O_CREAT | O_EXCL, 0700, 1);
     sem_waite = sem_open("sem_waite", O_CREAT | O_EXCL, 0700, 1);
     sem_waiting = sem_open("sem_waiting", O_CREAT | O_EXCL, 0700, 1);
+    sem_processes = sem_open("sem_processes", O_CREAT | O_EXCL, 0700, config_ptr->doctors);
 }
 
 /*Função que le do ficheiro e armazena na estrutura*/
@@ -63,19 +68,39 @@ void read_from_file(){
     printf("----------------------------------\n");
     printf("\n");
 }
+
+void create_message_queue(){
+    if((message_id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) < 0){
+        perror("Problem creating message queue");
+        exit(0);
+    }
+    printf("Message queue created!\n");
+}
+
+void cleanup_mq(){
+    if(msgctl(message_id, IPC_RMID, NULL) < 0){
+        perror("Error deleting message queue");
+        exit(0);
+    }
+    printf("Message queue deleted!\n");
+}
+
 void *worker(){
-    pthread_mutex_lock(&mutex);
-    msg mensagem;
-    returnedPatient = get_patient(patients, returnedPatient);
-    mensagem.pat = returnedPatient;
-    mensagem.mtype = returnedPatient.priority;
-    while (1) {
+    while(1){
+        pthread_mutex_lock(&mutex);
+        while(empty_patient_list(patients) == 1){
+            printf("A lista está vazia estou a esperar\n");
+            pthread_cond_wait(&cond, &mutex);
+        }
+        msg mensagem;
+        returnedPatient = get_patient(patients, returnedPatient);
+        mensagem.pat = returnedPatient;
+        mensagem.mtype = returnedPatient.priority;
         printf("[A] Sending (%s)\n", mensagem.pat.name);
         sleep(returnedPatient.triage_time);
         msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
-    }
-    pthread_mutex_unlock(&mutex);
-    exit(0);
+        pthread_mutex_unlock(&mutex);
+        }
 }
 
 void service_stats(){
@@ -104,7 +129,6 @@ void thread_pool(){
             perror("Error creating Triage thread\n");
         }
     }
-
 }
 
 /*void kill_threads(){
@@ -122,12 +146,10 @@ void fork_call(){
     msg mensagem;
     printf("Hello! I'm a doctor process, ready to help you!\n"); 
     service_stats();
-    while (1) {
-        msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
-        mensagem.mtype = mensagem.pat.priority;
-        printf("[B] Received (%s)\n", mensagem.pat.name);
-        sleep(config_ptr->shift_length);
-    }
+    msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
+    mensagem.mtype = mensagem.pat.priority;
+    printf("[B] Received (%s)\n", mensagem.pat.name);
+    sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
 }
 
@@ -138,11 +160,12 @@ void process_creator(){
 	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
         if(forkValue == 0){
-            signal(SIGINT,SIG_IGN);
+            signal(SIGINT,signal_handler);
+            sem_wait(sem_processes);
             pid = getpid();
             printf("Doctor on service! My ID is %d\n", pid);
             fork_call();
-            //LIBERTAR SEMAFORO -1
+            sem_post(sem_processes);
             exit(0);
         }
         else if (forkValue < 0){
@@ -150,7 +173,23 @@ void process_creator(){
             exit(1);
         }
 	}
-    while(wait(NULL)>0);
+    while(1){
+        if(value < config_ptr->doctors){
+            forkValue = fork();
+            if(forkValue == 0){
+                sem_wait(sem_processes);
+                signal(SIGINT,signal_handler);
+                pid = getpid();
+                printf("SEM VALUE DOCTOR! Doctor on service! My ID is %d\n", pid);
+                fork_call();
+                sem_post(sem_processes);
+                exit(0);
+            }
+            else if (forkValue < 0){
+                perror("Error creating process");
+            }
+        }
+    }
     /*Para a criação dinâmica, verificar message queue e os
     seus contéudos (se o que está na queue é >= 0,8) criar
     o processo temporário, ir verificando se a message queue
@@ -192,7 +231,6 @@ void create_shared_memory(){
     printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
     printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
     printf("---------------------------\n");
-
 }
 
 void stats_results(){
@@ -229,11 +267,6 @@ void create_named_pipe(){
         perror("Error opening pipe for reading: ");
         exit(0);
     }
-    /*
-
-    Named pipe recebe dados e manda para uma queue (lista ligada)
-    ler sobre merda dos selects e sets e o crl*/
-    
 
 }
 
@@ -279,7 +312,6 @@ void insert_patient(char name[30], float triage, float service, int priority, Pa
     newPatient->patient.priority = priority;
     atual->next = newPatient;
     newPatient->next = NULL;
-
 }
 
 void list_patient(PatientList listaPacientes){
@@ -305,6 +337,7 @@ Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
     atual = listaPacientes->next;
     if(empty_patient_list(listaPacientes)==1){
         printf("Empty list\n");
+        exit(0);
     }
     else{
         returnedPatient = atual->patient;
@@ -318,7 +351,7 @@ Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
     return returnedPatient;
 }
 
-void read_pipe(PatientList patients){
+void *read_pipe(){
     
     char buffer[MAX];
     char name[50];
@@ -336,7 +369,6 @@ void read_pipe(PatientList patients){
     int thread_val=0;
     while(1){
         read(fd, buffer, MAX);
-        printf("Received: %s\n", buffer);
         for(int i=0; i< strlen(buffer); i++){
             if(buffer[i] == ';'){
                 counter+=1;
@@ -350,6 +382,7 @@ void read_pipe(PatientList patients){
                 service = atoi(strtok(NULL, ";"));
                 priority = atoi(strtok(NULL, ";"));
                 insert_patient(name, triage, service, priority, patients);
+                pthread_cond_broadcast(&cond);
 
                 }
             else{
@@ -367,6 +400,7 @@ void read_pipe(PatientList patients){
                     strcat(name, "-");
                     strcat(name, appender);
                     insert_patient(name, triage, service, priority, patients);
+                    pthread_cond_broadcast(&cond);
                     i+=1;
                 }
                                 
@@ -416,44 +450,37 @@ void read_pipe(PatientList patients){
     }
 }
 
-
-
 void shutdown_semaphores(){
     sem_unlink("sem_triage");
     sem_unlink("sem_service");
     sem_unlink("sem_waitb");
     sem_unlink("sem_waite");
     sem_unlink("sem_waiting");
+    sem_unlink("sem_processes");
 
     sem_close(sem_triage);
     sem_close(sem_service);
     sem_close(sem_waitb);
     sem_close(sem_waite);
     sem_close(sem_waiting);
+    sem_close(sem_processes);
 }
-
 
 void signal_handler(int signum){
     while(wait(NULL)>0);
     shutdown_semaphores();
     stats_results();
     cleanup_sm();
+    cleanup_mq();
     /*kill_threads();*/
     free(config_ptr);
+    close(fd);
     kill(0, SIGKILL);
     exit(0);
 }
 
-void startup(){
-    read_from_file();
-    initialize_semaphores();
-    create_shared_memory();
-    thread_pool();
-    while_processes();
-}
-
 int main(){
-    /*signal(SIGINT, signal_handler);
+    signal(SIGINT, signal_handler);
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
@@ -461,15 +488,26 @@ int main(){
     }else{
         printf("Memory successfully allocated\n");
         }
-    startup();
-    printf("Exiting...\n");
-    exit(0);*/
+    read_from_file();
+    initialize_semaphores();
+    create_shared_memory();
+    create_message_queue();
     patients = create_patient_list();
     create_named_pipe();
-    read_pipe(patients);
-    /*insert_patient("joao", 50, 10, 3, patients);
-    insert_patient("artur", 50, 10, 3, patients);
-    list_patient(patients);
-    get_patient(patients, returnedPatient);
-    list_patient(patients);*/
+    pthread_cond_init(&cond, NULL);
+    pthread_t main_thread[0];
+    int main_id;
+    main_id=1;
+    if(pthread_create(&main_thread[0], NULL, read_pipe, &main_id)==0){
+        printf("Named pipe thread %d was created\n", main_id);
+    }
+    else{
+        printf("Couldn't create named pipe thread\n");
+        exit(0);
+    }
+    thread_pool();
+    process_creator();
+    while(1);
+    cleanup_mq();
+    destroy_patient_list(patients);
 }
