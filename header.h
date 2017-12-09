@@ -101,3 +101,9 @@ typedef struct stats{
 
 /*Criar pointer para statistics*/
 stats *stats_ptr;
+
+/*Estrutura para a message queue*/
+typedef struct mensagem{
+    long mtype;
+    Patient pat;
+}msg;
