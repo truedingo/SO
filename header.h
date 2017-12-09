@@ -22,25 +22,6 @@
 #define MAX 50
 #define PIPE_NAME "input_pipe"
 
-/*Server.c*/
-void read_from_file();
-void thread_pool();
-void *worker();
-void kill_process();
-void process_creator();
-void initialize_semaphores();
-void service_stats();
-void triage_stats();
-void fork_call();
-void while_processes();
-void create_shared_memory();
-void stats_results();
-void cleanup_sm();
-void shutdown_semaphores();
-void signal_handler();
-void startup();
-void create_named_pipe();
-
 
 /*Estrutura para config.txt
 //triage -> nthreads
@@ -101,3 +82,32 @@ typedef struct stats{
 
 /*Criar pointer para statistics*/
 stats *stats_ptr;
+
+/*Estrutura para a message queue*/
+typedef struct mensagem{
+    long mtype;
+    Patient pat;
+}msg;
+
+/*Server.c*/
+void read_from_file();
+void thread_pool();
+void *worker();
+void kill_process();
+void process_creator();
+void initialize_semaphores();
+void service_stats();
+void triage_stats();
+void fork_call();
+void while_processes();
+void create_shared_memory();
+void stats_results();
+void cleanup_sm();
+void shutdown_semaphores();
+void signal_handler();
+void startup();
+void create_named_pipe();
+void read_pipe();
+PatientList create_patient_list();
+Patient get_patient(PatientList listaPacientes, Patient returnedPatient);
+void delete_patient_node(PatientList listaPacientes);

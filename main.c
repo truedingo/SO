@@ -6,6 +6,7 @@ stats *stats_ptr;
 config *config_ptr;
 int shmid;
 int fd;
+int message_id;
 sem_t *sem_triage;
 sem_t *sem_service;
 sem_t *sem_waitb;
@@ -13,6 +14,8 @@ sem_t *sem_waite;
 sem_t *sem_waiting;
 sem_t *sem_control;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+PatientList patients;
+Patient returnedPatient;
 
 void initialize_semaphores(){
     /*Dar unlink dos semaforos por questãos de segurança*/
@@ -62,6 +65,15 @@ void read_from_file(){
 }
 void *worker(){
     pthread_mutex_lock(&mutex);
+    msg mensagem;
+    returnedPatient = get_patient(patients, returnedPatient);
+    mensagem.pat = returnedPatient;
+    mensagem.mtype = returnedPatient.priority;
+    while (1) {
+        printf("[A] Sending (%s)\n", mensagem.pat.name);
+        sleep(returnedPatient.triage_time);
+        msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
+    }
     pthread_mutex_unlock(&mutex);
     exit(0);
 }
@@ -107,9 +119,15 @@ void thread_pool(){
 }*/
 
 void fork_call(){
-    printf("Hello! I'm a doctor process, ready to help you!\n");
+    msg mensagem;
+    printf("Hello! I'm a doctor process, ready to help you!\n"); 
     service_stats();
-    sleep(config_ptr->shift_length);
+    while (1) {
+        msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
+        mensagem.mtype = mensagem.pat.priority;
+        printf("[B] Received (%s)\n", mensagem.pat.name);
+        sleep(config_ptr->shift_length);
+    }
     printf("Well, my shift is over. Goodbye!\n");
 }
 
@@ -276,7 +294,7 @@ void list_patient(PatientList listaPacientes){
     } 
 }
 
-PatientList delete_patient_node(PatientList listaPacientes){
+void delete_patient_node(PatientList listaPacientes){
     PatientList aux = listaPacientes->next;
     listaPacientes->next = aux->next;
     free(aux);
@@ -446,8 +464,6 @@ int main(){
     startup();
     printf("Exiting...\n");
     exit(0);*/
-    PatientList patients;
-    Patient returnedPatient;
     patients = create_patient_list();
     create_named_pipe();
     read_pipe(patients);
