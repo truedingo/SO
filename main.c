@@ -160,8 +160,8 @@ void process_creator(){
 	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
         if(forkValue == 0){
-            signal(SIGINT,signal_handler);
             sem_wait(sem_processes);
+            signal(SIGINT,signal_handler);
             pid = getpid();
             printf("Doctor on service! My ID is %d\n", pid);
             fork_call();
@@ -174,6 +174,8 @@ void process_creator(){
         }
 	}
     while(1){
+        sem_wait(sem_processes);
+        sem_getvalue(sem_processes, &value);
         if(value < config_ptr->doctors){
             forkValue = fork();
             if(forkValue == 0){
@@ -189,6 +191,8 @@ void process_creator(){
                 perror("Error creating process");
             }
         }
+        sem_post(sem_processes);
+
     }
     /*Para a criação dinâmica, verificar message queue e os
     seus contéudos (se o que está na queue é >= 0,8) criar
