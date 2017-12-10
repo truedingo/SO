@@ -80,6 +80,7 @@ typedef struct stats{
     float wait_etime;
     float wait_time;
     int mq_size;
+    int exit_thread;
 }stats;
 
 /*Criar pointer para statistics*/
@@ -114,3 +115,5 @@ PatientList create_patient_list();
 Patient get_patient(PatientList listaPacientes, Patient returnedPatient);
 void delete_patient_node(PatientList listaPacientes);
 int empty_patient_list(PatientList list);
+void increase_mq();
+void decrease_mq();
