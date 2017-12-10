@@ -28,6 +28,7 @@ void initialize_semaphores(){
     sem_unlink("sem_waite");
     sem_unlink("sem_waiting");
     sem_unlink("sem_processes");
+    sem_unlink("sem_control");
     /*Dar open dos semaforos*/
     sem_triage = sem_open("sem_triage", O_CREAT | O_EXCL, 0700, 1);
     sem_service = sem_open("sem_service", O_CREAT | O_EXCL, 0700, 1);
@@ -35,6 +36,7 @@ void initialize_semaphores(){
     sem_waite = sem_open("sem_waite", O_CREAT | O_EXCL, 0700, 1);
     sem_waiting = sem_open("sem_waiting", O_CREAT | O_EXCL, 0700, 1);
     sem_processes = sem_open("sem_processes", O_CREAT | O_EXCL, 0700, config_ptr->doctors);
+    sem_control = sem_open("sem_control", O_CREAT | O_EXCL, 0700, 1);
 }
 
 /*Função que le do ficheiro e armazena na estrutura*/
@@ -145,14 +147,24 @@ void thread_pool(){
 }*/
 
 void fork_call(){
-    msg mensagem;
-    printf("Hello! I'm a doctor process, ready to help you!\n"); 
-    service_stats();
-    msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
-    mensagem.mtype = mensagem.pat.priority;
-    (stats_ptr->mq_size)--;
-    printf("[B] MQ_SIZE: %d\n", stats_ptr->mq_size);
-    printf("[B] Received (%s)\n", mensagem.pat.name);
+    clock_t begin = clock();
+    double proc_time = (config_ptr->shift_length)/1000;
+    double shift_time = 0;
+    while(shift_time < proc_time){
+        if(config_ptr->mq_max > 0){
+            printf("%f\n", proc_time);
+            msg mensagem;
+            printf("Hello! I'm a doctor process %d, ready to help you!\n", getpid()); 
+            service_stats();
+            msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
+            (stats_ptr->mq_size)--;
+            usleep((mensagem.pat.service_time)*1000);
+            printf("[B] MQ_SIZE: %d\n", stats_ptr->mq_size);
+            printf("[B] Received (%s)\n", mensagem.pat.name);
+            shift_time += ((double)(begin + mensagem.pat.service_time))/ CLOCKS_PER_SEC;
+            printf("%fms\n", shift_time);
+        }
+    }
     printf("Well, my shift is over. Goodbye!\n");
 }
 
