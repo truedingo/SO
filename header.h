@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/timeb.h>
 #define MAX 50
 #define PIPE_NAME "input_pipe"
 

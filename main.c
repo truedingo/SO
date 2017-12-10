@@ -85,23 +85,23 @@ void cleanup_mq(){
     printf("Message queue deleted!\n");
 }
 
-void *worker(){
+void *worker(void* pVoid){
+    int id = *(int*)pVoid;
     while(1){
         pthread_mutex_lock(&mutex);
         while(empty_patient_list(patients) == 1){
-            printf("A lista está vazia estou a esperar\n");
             pthread_cond_wait(&cond, &mutex);
         }
         msg mensagem;
         returnedPatient = get_patient(patients, returnedPatient);
         mensagem.pat = returnedPatient;
         mensagem.mtype = returnedPatient.priority;
-        printf("[A] Sending (%s)\n", mensagem.pat.name);
-        sleep(returnedPatient.triage_time);
+        printf("[A] Thread %d Sending (%s)\n", id, mensagem.pat.name);
+        usleep((returnedPatient.triage_time)*1000);
+        pthread_mutex_unlock(&mutex);
         msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
         (stats_ptr->mq_size)++;
-        printf("%d\n", stats_ptr->mq_size);
-        pthread_mutex_unlock(&mutex);
+        printf("[A] MQ_SIZE: %d\n", stats_ptr->mq_size);
         }
 }
 
@@ -151,8 +151,8 @@ void fork_call(){
     msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
     mensagem.mtype = mensagem.pat.priority;
     (stats_ptr->mq_size)--;
+    printf("[B] MQ_SIZE: %d\n", stats_ptr->mq_size);
     printf("[B] Received (%s)\n", mensagem.pat.name);
-    sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
 }
 
@@ -389,6 +389,10 @@ void *read_pipe(){
                 triage = atoi(strtok(NULL, ";"));
                 service = atoi(strtok(NULL, ";"));
                 priority = atoi(strtok(NULL, ";"));
+                if(priority < 0 || priority > 3){
+                    printf("Invalid priority, changed to 3\n");
+                    priority = 3;
+                }
                 insert_patient(name, triage, service, priority, patients);
                 pthread_cond_broadcast(&cond);
 
@@ -402,6 +406,10 @@ void *read_pipe(){
                 triage= atoi(strtok(NULL, ";"));
                 service= atoi(strtok(NULL, ";"));
                 priority= atoi(strtok(NULL, ";"));
+                if(priority < 0 || priority > 3){
+                    printf("Invalid priority, changed to 3\n");
+                    priority = 3;
+                }
                 for(int k=1; k<=atoi(checker); k++){
                     strcpy(name, date);
                     sprintf(appender, "%d", i);
