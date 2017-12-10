@@ -78,6 +78,7 @@ typedef struct stats{
     float wait_btime;
     float wait_etime;
     float wait_time;
+    int mq_size;
 }stats;
 
 /*Criar pointer para statistics*/

@@ -99,6 +99,8 @@ void *worker(){
         printf("[A] Sending (%s)\n", mensagem.pat.name);
         sleep(returnedPatient.triage_time);
         msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
+        (stats_ptr->mq_size)++;
+        printf("%d\n", stats_ptr->mq_size);
         pthread_mutex_unlock(&mutex);
         }
 }
@@ -148,6 +150,7 @@ void fork_call(){
     service_stats();
     msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
     mensagem.mtype = mensagem.pat.priority;
+    (stats_ptr->mq_size)--;
     printf("[B] Received (%s)\n", mensagem.pat.name);
     sleep(config_ptr->shift_length);
     printf("Well, my shift is over. Goodbye!\n");
@@ -227,6 +230,7 @@ void create_shared_memory(){
     stats_ptr->wait_btime=0;
     stats_ptr->wait_etime=0;
     stats_ptr->wait_time=0;
+    stats_ptr->mq_size=0;
     /*Dados teste*/
     printf("----------RESULTS----------\n");
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
