@@ -6,6 +6,7 @@ Artur Duarte Coutinho: 25h
 */
 
 
+int* triage_id;
 stats *stats_ptr;
 config *config_ptr;
 int shmid;
@@ -80,10 +81,10 @@ void read_from_file(){
 }
 
 void create_message_queue(){
-    signal(SIGINT, signal_handler);
-    signal(SIGQUIT, signal_handler);
-    signal(SIGHUP, signal_handler);
-    signal(SIGTERM, signal_handler);
+    //signal(SIGINT, signal_handler);
+    //signal(SIGQUIT, signal_handler);
+    //signal(SIGHUP, signal_handler);
+    //signal(SIGTERM, signal_handler);
 
     if((message_id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) < 0){
         perror("Problem creating message queue");
@@ -102,8 +103,10 @@ void cleanup_mq(){
 
 void *worker(void* pVoid){
     int id = *(int*)pVoid;
+    printf("%d: Ola\n", id);
     while(1){
         pthread_mutex_lock(&mutex);
+        printf("%d: Possui o semaforo 1\n", id);
         while(empty_patient_list(patients) == 1){
             pthread_cond_wait(&cond, &mutex);
         }
@@ -111,11 +114,16 @@ void *worker(void* pVoid){
         returnedPatient = get_patient(patients, returnedPatient);
         mensagem.pat = returnedPatient;
         mensagem.mtype = returnedPatient.priority;
+        pthread_mutex_unlock(&mutex);
+        printf("%d: Libertei o semaforo 1\n", id);
         printf("[%d] Thread: (%s)\n", id, mensagem.pat.name);
         usleep((returnedPatient.triage_time)*1000);
-        pthread_mutex_unlock(&mutex);
         triage_stats();
+        pthread_mutex_lock(&mutex);
+        printf("%d: Possui o semaforo 2\n", id);
         msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
+        pthread_mutex_unlock(&mutex);
+        printf("%d: Libertei o semaforo 2\n", id);
         increase_mq();
         }
 }
@@ -145,8 +153,8 @@ void increase_mq(){
 }
 void thread_pool(){
     int i=0;
-    int triage_id[config_ptr->triage];
-    triage_thread = malloc(sizeof(triage_thread)*config_ptr->triage);
+    triage_id = malloc(sizeof(int)*config_ptr->triage);
+    triage_thread = malloc(sizeof(pthread_t)*config_ptr->triage);
     for(i=0; i<config_ptr->triage; i++){
         triage_id[i] = i;
         if(pthread_create(&triage_thread[i], NULL, worker, &triage_id[i])==0){
@@ -159,8 +167,9 @@ void thread_pool(){
     }
 }
 
-/*void kill_threads(){
-    for(i=0; i<config_ptr->triage; i++){
+void kill_threads(){
+    printf("Starting kill thread");
+    for(int i=0; i<config_ptr->triage; i++){
         if(pthread_join(triage_thread[i], NULL)==0){
             printf("Triage thread %d was killed\n", triage_id[i]);
         }
@@ -168,9 +177,13 @@ void thread_pool(){
             perror("Error killing Triage thread\n");
         }
     }
-}*/
-
+}
+void teste(){
+    printf("[%d] teste\n", getpid());
+    exit(0);
+}
 void fork_call(){
+    printf("Ignoring\n");
     clock_t begin = clock();
     double proc_time = (config_ptr->shift_length)/1000;
     double shift_time = 0;
@@ -189,15 +202,17 @@ void fork_call(){
 }
 
 void process_creator(){
+    signal(SIGINT, signal_handler);
 	int i;
-    pid_t pid;
+    pid_t pid = getpid();
     int forkValue;
+    printf("%d: Process Creator\n", pid);
 	for(i=0; i<config_ptr->doctors; i++){
 	    forkValue = fork();
         if(forkValue == 0){
-            signal(SIGINT, SIG_IGN);
+            signal(SIGINT, teste);
+            printf("[%d] Mas que foda\n", getpid());
             sem_wait(sem_processes);
-            signal(SIGINT,signal_handler);
             pid = getpid();
             printf("[%d] Service Doctor\n", pid);
             fork_call();
@@ -210,14 +225,15 @@ void process_creator(){
         }
 	}
     while(1){
+        //signal(SIGINT, signal_handler);
         sem_wait(sem_processes);
         sem_getvalue(sem_processes, &value);
-        if(value < config_ptr->doctors){
+        printf("value: %d\n", value);
+        if(value > 0 && value < config_ptr->doctors){
             forkValue = fork();
             if(forkValue == 0){
-                signal(SIGINT, SIG_IGN);
+                signal(SIGINT, teste);
                 sem_wait(sem_processes);
-                signal(SIGINT,signal_handler);
                 pid = getpid();
                 printf("[%d] Service Doctor\n", pid);
                 fork_call();
@@ -229,7 +245,6 @@ void process_creator(){
             }
         }
         sem_post(sem_processes);
-
     }
     /*Para a criação dinâmica, verificar message queue e os
     seus contéudos (se o que está na queue é >= 0,8) criar
@@ -375,11 +390,11 @@ Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
     else{
         returnedPatient = atual->patient;
         delete_patient_node(listaPacientes);
-        /*printf("RETURNED PATIENT:\n");
+        printf("RETURNED PATIENT:\n");
         printf("%s\n",returnedPatient.name);
         printf("%1f\n",returnedPatient.triage_time);
         printf("%1f\n",returnedPatient.service_time);
-        printf("%d\n",returnedPatient.priority);*/
+        printf("%d\n",returnedPatient.priority);
     }
     return returnedPatient;
 }
@@ -512,7 +527,18 @@ void shutdown_semaphores(){
 }
 
 void signal_handler(int signum){
+    //int debug = 1; 
+    //if(debug)
+    //{
+    //printf("%d: Antes do wait\n", getpid());
+    //}
     while(wait(NULL)>0);
+    //if(debug)
+    //{
+    //printf("Antes do kill\n");
+    //}
+    
+    //kill_threads();
     shutdown_semaphores();
     cleanup_sm();
     cleanup_mq();
@@ -525,7 +551,7 @@ void signal_handler(int signum){
 }
 
 int main(){
-    signal(SIGINT, signal_handler);
+    //signal(SIGINT, SIG_IGN);
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
