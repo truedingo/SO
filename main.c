@@ -1,5 +1,9 @@
 
 #include "header.h"
+/*Realizado por:
+Diogo Alexandre Santos Amores: 25h
+Artur Duarte Coutinho: 25h
+*/
 
 
 stats *stats_ptr;
@@ -30,7 +34,6 @@ void initialize_semaphores(){
     sem_unlink("sem_waite");
     sem_unlink("sem_waiting");
     sem_unlink("sem_processes");
-    sem_unlink("sem_control");
     sem_unlink("sem_dmq");
     sem_unlink("sem_imq");
     /*Dar open dos semaforos*/
@@ -77,6 +80,11 @@ void read_from_file(){
 }
 
 void create_message_queue(){
+    signal(SIGINT, signal_handler);
+    signal(SIGQUIT, signal_handler);
+    signal(SIGHUP, signal_handler);
+    signal(SIGTERM, signal_handler);
+
     if((message_id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) < 0){
         perror("Problem creating message queue");
         exit(0);
@@ -99,18 +107,16 @@ void *worker(void* pVoid){
         while(empty_patient_list(patients) == 1){
             pthread_cond_wait(&cond, &mutex);
         }
-        if(stats_ptr->exit_thread == 1)
-            pthread_exit(NULL);
         msg mensagem;
         returnedPatient = get_patient(patients, returnedPatient);
         mensagem.pat = returnedPatient;
         mensagem.mtype = returnedPatient.priority;
-        printf("[A] Thread %d Sending (%s)\n", id, mensagem.pat.name);
+        printf("[%d] Thread: (%s)\n", id, mensagem.pat.name);
         usleep((returnedPatient.triage_time)*1000);
         pthread_mutex_unlock(&mutex);
+        triage_stats();
         msgsnd(message_id, &mensagem, sizeof(mensagem)-sizeof(long), 0);
         increase_mq();
-        printf("[A] MQ_SIZE: %d\n", stats_ptr->mq_size);
         }
 }
 
@@ -137,7 +143,6 @@ void increase_mq(){
     (stats_ptr->mq_size)++;
     sem_post(sem_imq);
 }
-
 void thread_pool(){
     int i=0;
     int triage_id[config_ptr->triage];
@@ -171,33 +176,30 @@ void fork_call(){
     double shift_time = 0;
     while(shift_time < proc_time){
         if(stats_ptr->mq_size > 0){
-            printf("%f\n", proc_time);
             msg mensagem;
-            printf("Hello! I'm a doctor process %d, ready to help you!\n", getpid()); 
             service_stats();
-            msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), 3, 0);
+            msgrcv(message_id, &mensagem, sizeof(msg)-sizeof(long), -3, 0);
             decrease_mq();
             usleep((mensagem.pat.service_time)*1000);
-            printf("[B] MQ_SIZE: %d\n", stats_ptr->mq_size);
-            printf("[B] Received (%s)\n", mensagem.pat.name);
+            printf("[%d] Received (%s)\n", getpid(), mensagem.pat.name);
             shift_time += ((double)(begin + mensagem.pat.service_time))/ CLOCKS_PER_SEC;
-            printf("%fms\n", shift_time);
         }
     }
-    printf("[%d] Well, my shift is over. Goodbye!\n", getpid());
+    printf("[%d] Shift is over!\n", getpid());
 }
 
 void process_creator(){
-    int i;
+	int i;
     pid_t pid;
     int forkValue;
-    for(i=0; i<config_ptr->doctors; i++){
-        forkValue = fork();
+	for(i=0; i<config_ptr->doctors; i++){
+	    forkValue = fork();
         if(forkValue == 0){
+            signal(SIGINT, SIG_IGN);
             sem_wait(sem_processes);
             signal(SIGINT,signal_handler);
             pid = getpid();
-            printf("Doctor on service! My ID is %d\n", pid);
+            printf("[%d] Service Doctor\n", pid);
             fork_call();
             sem_post(sem_processes);
             exit(0);
@@ -206,17 +208,18 @@ void process_creator(){
             perror("Error creating process\n");
             exit(1);
         }
-    }
+	}
     while(1){
         sem_wait(sem_processes);
         sem_getvalue(sem_processes, &value);
         if(value < config_ptr->doctors){
             forkValue = fork();
             if(forkValue == 0){
+                signal(SIGINT, SIG_IGN);
                 sem_wait(sem_processes);
                 signal(SIGINT,signal_handler);
                 pid = getpid();
-                printf("SEM VALUE DOCTOR! Doctor on service! My ID is %d\n", pid);
+                printf("[%d] Service Doctor\n", pid);
                 fork_call();
                 sem_post(sem_processes);
                 exit(0);
@@ -237,15 +240,6 @@ void process_creator(){
     no estado para tal*/
 }
 
-void while_processes(){
-    //CRIAR SEMAFORO ESTE SEMAFOR PODE SER POSSUIDO 10 VEZES
-    printf("Creating doctor processes\n");
-    while(1){
-        //POSSUIR SEMAFORO +1
-        process_creator();
-    }
-}
-
 void create_shared_memory(){
     if((shmid = shmget(IPC_PRIVATE, sizeof(stats), IPC_CREAT |0766)) == -1){
         perror("Error creating shared memory\n");   
@@ -262,15 +256,14 @@ void create_shared_memory(){
     stats_ptr->wait_etime=0;
     stats_ptr->wait_time=0;
     stats_ptr->mq_size=0;
-    stats_ptr->exit_thread=0;
-    /*Dados teste*/
+    /*Dados teste
     printf("----------RESULTS----------\n");
     printf("Número de pacientes triados: %d\n", stats_ptr->num_triage);
     printf("Número de pacientes atendidos: %d\n", stats_ptr->num_service);
     printf("Tempo média de espera antes do inicio da triagem: %.1f\n", stats_ptr->wait_btime);
     printf("Tempo média de espera entre o fim da triagem e o início do atendimento: %.1f\n", stats_ptr->wait_etime);
     printf("Média do tempo total que cada paciente gastou desde que chegou ao sistema até sair: %.1f\n", stats_ptr->wait_time);
-    printf("---------------------------\n");
+    printf("---------------------------\n");*/
 }
 
 void stats_results(){
@@ -382,11 +375,11 @@ Patient get_patient(PatientList listaPacientes, Patient returnedPatient){
     else{
         returnedPatient = atual->patient;
         delete_patient_node(listaPacientes);
-        printf("RETURNED PATIENT:\n");
+        /*printf("RETURNED PATIENT:\n");
         printf("%s\n",returnedPatient.name);
         printf("%1f\n",returnedPatient.triage_time);
         printf("%1f\n",returnedPatient.service_time);
-        printf("%d\n",returnedPatient.priority);
+        printf("%d\n",returnedPatient.priority);*/
     }
     return returnedPatient;
 }
@@ -498,15 +491,6 @@ void *read_pipe(){
     }
 }
 
-void join_threads(){
-    stats_ptr->exit_thread = 1;
-     for(int i=0; i<config_ptr->triage; i++){
-        if(pthread_join(triage_thread[i], NULL)==0){
-            perror("Error joining threads");
-        }
-    }
-}
-
 void shutdown_semaphores(){
     sem_unlink("sem_triage");
     sem_unlink("sem_service");
@@ -514,6 +498,8 @@ void shutdown_semaphores(){
     sem_unlink("sem_waite");
     sem_unlink("sem_waiting");
     sem_unlink("sem_processes");
+    sem_unlink("sem_dmq");
+    sem_unlink("sem_imq");
 
     sem_close(sem_triage);
     sem_close(sem_service);
@@ -521,16 +507,17 @@ void shutdown_semaphores(){
     sem_close(sem_waite);
     sem_close(sem_waiting);
     sem_close(sem_processes);
+    sem_close(sem_dmq);
+    sem_close(sem_imq);
 }
 
 void signal_handler(int signum){
     while(wait(NULL)>0);
     shutdown_semaphores();
-    stats_results();
     cleanup_sm();
     cleanup_mq();
+    stats_results();
     free(config_ptr);
-    join_threads();
     destroy_patient_list(patients);
     close(fd);
     kill(0, SIGKILL);
@@ -538,7 +525,7 @@ void signal_handler(int signum){
 }
 
 int main(){
-    signal(SIGINT, SIG_IGN);
+    signal(SIGINT, signal_handler);
     config_ptr = malloc(sizeof(config));
     if(config_ptr == NULL){
         printf("Memory allocation error\n");
@@ -563,11 +550,7 @@ int main(){
         printf("Couldn't create named pipe thread\n");
         exit(0);
     }
-    if(stats_ptr->exit_thread == 1){
-        pthread_exit(NULL);
-        pthread_join(main_thread[0], NULL);
-    }
     thread_pool();
     process_creator();
-    while(1);
+    return 0;
 }

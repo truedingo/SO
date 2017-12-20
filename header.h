@@ -80,7 +80,6 @@ typedef struct stats{
     float wait_etime;
     float wait_time;
     int mq_size;
-    int exit_thread;
 }stats;
 
 /*Criar pointer para statistics*/
@@ -93,27 +92,35 @@ typedef struct mensagem{
 }msg;
 
 /*Server.c*/
-void read_from_file();
-void thread_pool();
-void *worker();
-void kill_process();
-void process_creator();
 void initialize_semaphores();
+void read_from_file();
+void create_message_queue();
+void cleanup_mq();
+void *worker(void* pVoid);
 void service_stats();
 void triage_stats();
+void decrease_mq();
+void increase_mq();
+void thread_pool();
 void fork_call();
-void while_processes();
+void process_creator();
 void create_shared_memory();
 void stats_results();
 void cleanup_sm();
-void shutdown_semaphores();
-void signal_handler();
-void startup();
 void create_named_pipe();
-void *read_pipe();
-PatientList create_patient_list();
-Patient get_patient(PatientList listaPacientes, Patient returnedPatient);
-void delete_patient_node(PatientList listaPacientes);
+PatientList create_patient_list(void);
 int empty_patient_list(PatientList list);
-void increase_mq();
-void decrease_mq();
+PatientList destroy_patient_list(PatientList list);
+void insert_patient(char name[30], float triage, float service, int priority, PatientList patients);
+void list_patient(PatientList listaPacientes);
+void delete_patient_node(PatientList listaPacientes);
+Patient get_patient(PatientList listaPacientes, Patient returnedPatient);
+void *read_pipe();
+void shutdown_semaphores();
+void signal_handler(int signum);
+
+
+
+
+
+
